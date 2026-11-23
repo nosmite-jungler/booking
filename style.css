@@ -1,25 +1,51 @@
+/* 뉴모피즘 공통 스타일 — 색·그림자는 아래 :root 값만 바꾸면 전체에 적용됩니다 */
 :root {
-  --bg: #f6f7f9; --card: #fff; --text: #1f2328; --muted: #6b7280; --line: #e3e6ea;
-  --sel: #1a73e8; --warn: #e37400; --err: #c5221f; --ok-bg: #e8f0fe; --err-bg: #fce8e6;
+  --bg: #e4e8ee;          /* 바탕 = 카드 = 버튼 (뉴모피즘은 같은 색에서 그림자로만 구분) */
+  --hi: #ffffff;          /* 왼쪽 위 밝은 그림자 */
+  --lo: #b8c0cc;          /* 오른쪽 아래 어두운 그림자 */
+  --text: #2b3240; --muted: #6a7384;
+  --sel: #3d6fe0; --warn: #c76a00; --err: #c8372f; --okc: #2f8f5b;
+  --radius: 18px; --radius-s: 12px;
+  --raise: 7px 7px 16px var(--lo), -7px -7px 16px var(--hi);
+  --raise-s: 4px 4px 9px var(--lo), -4px -4px 9px var(--hi);
+  --press: inset 4px 4px 8px var(--lo), inset -4px -4px 8px var(--hi);
+  --press-s: inset 2px 2px 5px var(--lo), inset -2px -2px 5px var(--hi);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #2a2e36; --hi: #363b45; --lo: #1c1f25; --text: #e6e9ef; --muted: #9aa3b2;
+    --sel: #7aa2ff; --warn: #f0a24a; --err: #ff7a70; --okc: #5fd197; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text);
   font: 14px/1.6 -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
-.wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
-h1 { font-size: 20px; margin: 4px 0; } h2 { font-size: 16px; margin: 24px 0 8px; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 22px; margin: 6px 0 4px; letter-spacing: -.3px; }
+h2 { font-size: 15px; margin: 32px 0 12px; color: var(--muted); font-weight: 600; letter-spacing: .2px; }
 .muted { color: var(--muted); }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
-.card.done { opacity: .5; }
-pre { background: #fff7e0; padding: 8px; border-radius: 6px; white-space: pre-wrap; font: 13px/1.5 inherit; margin: 6px 0; }
-input, select, button { font: inherit; }
-input, select { padding: 7px 8px; border: 1px solid #cfd4da; border-radius: 8px; background: #fff; min-height: 38px; }
-input.memo { width: 100%; margin: 6px 0; }
-button { padding: 8px 12px; margin: 2px 6px 2px 0; border: 1px solid #bbb; border-radius: 8px; background: #fff; cursor: pointer; min-height: 38px; }
-button:disabled { opacity: .45; cursor: default; }
-button.ok { background: var(--sel); color: #fff; border-color: var(--sel); }
-button.no { color: var(--err); border-color: var(--err); }
-label { display: block; margin: 6px 0; }
-.msg { margin-top: 6px; font-weight: 600; }
-.tag { font-size: 12px; padding: 2px 6px; border-radius: 4px; background: var(--ok-bg); color: var(--sel); }
-.tag.red { background: var(--err-bg); color: var(--err); }
+
+.card { background: var(--bg); border-radius: var(--radius); padding: 16px 18px; margin: 18px 0; box-shadow: var(--raise); }
+.card.done { box-shadow: var(--press); opacity: .6; }
+
+pre { background: var(--bg); box-shadow: var(--press-s); padding: 10px 12px; border-radius: var(--radius-s);
+  white-space: pre-wrap; font: 13px/1.5 inherit; margin: 8px 0; color: var(--warn); }
+
+input, select, button { font: inherit; color: var(--text); }
+input, select { padding: 8px 12px; border: 0; border-radius: var(--radius-s); background: var(--bg);
+  box-shadow: var(--press); min-height: 40px; outline: none; }
+input:focus, select:focus { box-shadow: var(--press), 0 0 0 2px var(--sel); }
+input.memo { width: 100%; margin: 10px 0; }
+
+button { padding: 9px 16px; margin: 4px 8px 4px 0; border: 0; border-radius: var(--radius-s); background: var(--bg);
+  box-shadow: var(--raise-s); cursor: pointer; min-height: 40px; font-weight: 600; transition: box-shadow .15s, transform .15s; }
+button:hover { transform: translateY(-1px); }
+button:active { box-shadow: var(--press-s); transform: none; }
+button:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+button:disabled { box-shadow: var(--press-s); opacity: .5; cursor: default; transform: none; }
+button.ok { color: var(--sel); }
+button.no { color: var(--err); }
+
+label { display: block; margin: 10px 0; }
+.msg { margin-top: 8px; font-weight: 600; }
+.tag { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--bg); box-shadow: var(--press-s); color: var(--sel); }
+.tag.red { color: var(--err); }
 .error { color: var(--err); font-weight: 600; }

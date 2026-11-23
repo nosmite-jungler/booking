@@ -5,61 +5,82 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>기기 예약 — 시간 선택</title>
 <style>
+  /* 뉴모피즘 — 색·그림자는 :root 값만 바꾸면 됩니다 */
   :root {
-    --bg: #f6f7f9; --card: #fff; --text: #1f2328; --muted: #6b7280; --line: #e3e6ea; --line2: #f0f2f4;
-    --sel: #1a73e8; --sel-bg: rgba(26,115,232,.18); --warn: #e37400; --warn-bg: rgba(227,116,0,.18);
-    --err: #c5221f; --err-bg: rgba(197,34,31,.16);
-    --booked: #9aa0a6; --outage: #c5221f; --pending: #f9ab00;
+    --bg: #e4e8ee; --hi: #ffffff; --lo: #b8c0cc; --text: #2b3240; --muted: #6a7384;
+    --line: rgba(120,132,150,.28); --line2: rgba(120,132,150,.12);
+    --sel: #3d6fe0; --sel-bg: rgba(61,111,224,.16); --warn: #c76a00; --warn-bg: rgba(199,106,0,.16);
+    --err: #c8372f; --err-bg: rgba(200,55,47,.14);
+    --booked: #8f98a8; --outage: #c8372f; --pending: #e3a21a; --lane2: rgba(255,255,255,.25);
+    --radius: 18px; --radius-s: 12px;
+    --raise: 7px 7px 16px var(--lo), -7px -7px 16px var(--hi);
+    --raise-s: 4px 4px 9px var(--lo), -4px -4px 9px var(--hi);
+    --press: inset 4px 4px 8px var(--lo), inset -4px -4px 8px var(--hi);
+    --press-s: inset 2px 2px 5px var(--lo), inset -2px -2px 5px var(--hi);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #2a2e36; --hi: #363b45; --lo: #1c1f25; --text: #e6e9ef; --muted: #9aa3b2;
+      --sel: #7aa2ff; --sel-bg: rgba(122,162,255,.18); --warn: #f0a24a; --err: #ff7a70; --booked: #5d6574; --lane2: rgba(255,255,255,.025); }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
     font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 20px; margin: 4px 0 2px; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 6px 0 4px; letter-spacing: -.3px; }
   .muted { color: var(--muted); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 12px 0; }
-  .notice { background: #fff4e5; border-color: #ffd8a8; white-space: pre-line; font-size: 13px; }
-  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .row label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; }
-  input, select, button { font: inherit; }
-  input, select { padding: 7px 8px; border: 1px solid #cfd4da; border-radius: 8px; background: #fff; color: var(--text); min-height: 38px; }
-  button { padding: 8px 12px; border: 1px solid #cfd4da; border-radius: 8px; background: #fff; cursor: pointer; min-height: 38px; }
-  button:disabled { opacity: .45; cursor: default; }
-  .primary { background: var(--sel); color: #fff; border-color: var(--sel); font-weight: 600; text-decoration: none;
-    display: inline-flex; align-items: center; padding: 10px 16px; border-radius: 8px; }
-  .primary[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+  .card { background: var(--bg); border-radius: var(--radius); padding: 16px 18px; margin: 18px 0; box-shadow: var(--raise); }
+  .notice { box-shadow: var(--press); color: var(--warn); white-space: pre-line; font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .row label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 6px; }
+  input, select, button { font: inherit; color: var(--text); }
+  input, select { padding: 8px 12px; border: 0; border-radius: var(--radius-s); background: var(--bg);
+    box-shadow: var(--press); min-height: 40px; outline: none; }
+  input:focus, select:focus { box-shadow: var(--press), 0 0 0 2px var(--sel); }
+  button { padding: 9px 16px; border: 0; border-radius: var(--radius-s); background: var(--bg); box-shadow: var(--raise-s);
+    cursor: pointer; min-height: 40px; font-weight: 600; }
+  button:active { box-shadow: var(--press-s); }
+  button:disabled { box-shadow: var(--press-s); opacity: .5; cursor: default; }
+  .primary { background: var(--bg); color: var(--sel); font-weight: 700; text-decoration: none; box-shadow: var(--raise);
+    display: inline-flex; align-items: center; padding: 12px 20px; border-radius: 999px; transition: box-shadow .15s, transform .15s; }
+  .primary:hover { transform: translateY(-1px); }
+  .primary:active { box-shadow: var(--press); transform: none; }
+  .primary[aria-disabled="true"] { box-shadow: var(--press-s); color: var(--muted); opacity: .7; pointer-events: none; }
 
-  /* 타임라인 */
+  /* 타임라인: 움푹 들어간 판 위에 블록이 떠 있는 구성 */
   .grid { display: grid; grid-template-columns: 44px repeat(var(--lanes), minmax(0, 1fr)); position: relative; user-select: none; }
-  .lane-head { position: sticky; top: 0; z-index: 3; background: var(--card); font-size: 12px; font-weight: 600;
-    text-align: center; padding: 6px 2px; border-bottom: 1px solid var(--line); line-height: 1.25; }
+  .lane-head { position: sticky; top: 0; z-index: 3; background: var(--bg); font-size: 12px; font-weight: 600;
+    text-align: center; padding: 8px 2px; line-height: 1.25; box-shadow: 0 6px 8px -6px var(--lo); }
   .lane-head.off { color: var(--err); }
   .gutter { position: relative; }
   .tick { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-50%); }
   .lane { position: relative; border-left: 1px solid var(--line); cursor: crosshair; touch-action: pan-y; }
-  .lane.type-printer { background: #fbfcfe; }
+  .lane.type-printer { background: var(--lane2); }
   .slotline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line2); pointer-events: none; }
   .slotline.hour { border-top-color: var(--line); }
-  .blk { position: absolute; left: 3px; right: 3px; border-radius: 6px; font-size: 11px; padding: 2px 4px; overflow: hidden;
-    pointer-events: none; color: #fff; }
+  .blk { position: absolute; left: 4px; right: 4px; border-radius: 8px; font-size: 11px; padding: 2px 5px; overflow: hidden;
+    pointer-events: none; color: #fff; box-shadow: 2px 2px 5px var(--lo); }
   .blk.booked { background: var(--booked); }
-  .blk.outage { background: repeating-linear-gradient(45deg, var(--outage), var(--outage) 6px, #d93025 6px, #d93025 12px); }
-  .blk.pending { background: repeating-linear-gradient(45deg, rgba(249,171,0,.55), rgba(249,171,0,.55) 6px, rgba(249,171,0,.3) 6px, rgba(249,171,0,.3) 12px); color: #6b4a00; }
-  .sel { position: absolute; left: 2px; right: 2px; border-radius: 6px; border: 2px solid var(--sel); background: var(--sel-bg);
-    pointer-events: none; z-index: 2; font-size: 12px; font-weight: 600; color: var(--sel); padding: 2px 4px; }
+  .blk.outage { background: repeating-linear-gradient(45deg, var(--outage), var(--outage) 6px, #dc5a52 6px, #dc5a52 12px); }
+  .blk.pending { background: repeating-linear-gradient(45deg, rgba(227,162,26,.6), rgba(227,162,26,.6) 6px, rgba(227,162,26,.32) 6px, rgba(227,162,26,.32) 12px); color: #5e4300; box-shadow: none; }
+  .sel { position: absolute; left: 3px; right: 3px; border-radius: 8px; border: 2px solid var(--sel); background: var(--sel-bg);
+    pointer-events: none; z-index: 2; font-size: 12px; font-weight: 700; color: var(--sel); padding: 2px 5px;
+    box-shadow: 3px 3px 8px var(--lo), -3px -3px 8px var(--hi); }
   .sel.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
   .sel.err { border-color: var(--err); background: var(--err-bg); color: var(--err); }
   .sel.pending1 { border-style: dashed; }
-  .past { position: absolute; left: 0; right: 0; top: 0; background: rgba(0,0,0,.05); pointer-events: none; }
-  .scroll { max-height: 62vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  .past { position: absolute; left: 0; right: 0; top: 0; background: rgba(90,100,120,.10); pointer-events: none; }
+  .scroll { max-height: 62vh; overflow: auto; border-radius: var(--radius); background: var(--bg); box-shadow: var(--press); padding: 0 6px 6px; }
 
-  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
-  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
-  .status { margin: 10px 0 0; font-weight: 600; min-height: 22px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -2px; margin-right: 5px; }
+  .status { margin: 12px 0 0; font-weight: 600; min-height: 22px; }
   .status.ok { color: var(--sel); } .status.warn { color: var(--warn); } .status.err { color: var(--err); }
-  .sub a { display: inline-block; margin: 4px 8px 4px 0; }
+  .sub a { display: inline-block; margin: 8px 10px 4px 0; padding: 8px 14px; border-radius: 999px; box-shadow: var(--raise-s);
+    color: var(--sel); text-decoration: none; font-weight: 600; font-size: 13px; }
+  .sub a:active { box-shadow: var(--press-s); }
   .spin { color: var(--muted); padding: 24px; text-align: center; }
-  @media (max-width: 560px) { .lane-head { font-size: 11px; } .grid { grid-template-columns: 36px repeat(var(--lanes), minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .lane-head { font-size: 11px; } .grid { grid-template-columns: 36px repeat(var(--lanes), minmax(0, 1fr)); }
+    .card { padding: 14px; } }
 </style>
 </head>
 <body>
