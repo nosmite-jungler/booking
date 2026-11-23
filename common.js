@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // ① 여기에 Apps Script 웹앱 주소를 넣으세요 (배포 관리에서 복사, 끝이 /exec)
-const API_URL = 'PUT_WEB_APP_URL';
+const API_URL = 'https://script.google.com/macros/s/AKfycbw94zgbigKAI0haHAdRk4cLM64zlplpwwnebxIGcgzO7mUcLsTu25m55lz2dceZ6GxgaA/exec';
 // ─────────────────────────────────────────────────────────────
 
 // Apps Script와 데이터만 주고받습니다. 계정 정보(쿠키)를 보내지 않으므로
