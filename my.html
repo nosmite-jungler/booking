@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>내 예약</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>내 예약</h1>
+  <div class="card" id="box"><span class="muted">불러오는 중…</span></div>
+</div>
+<script src="common.js"></script>
+<script>
+const KEY = qs('c');
+const box = document.getElementById('box');
+
+function render(r) {
+  const extra = r.상태 === '사전종료' ? `<br>실제 종료: ${esc(r.실제종료)} · 실사용 ${esc(r.실사용)}시간` : '';
+  let h = `<div><b>${esc(r.기기)}</b><br>${esc(r.시작)} ~ ${esc(r.종료)}<br>신청자: ${esc(r.이름)} (${esc(r.학번)})<br>상태: <b>${esc(r.상태)}</b>${extra}</div>`;
+  if (!r.action) { box.innerHTML = h + `<p>${esc(r.why)}</p>`; return; }
+  const label = r.action === 'cancel' ? '예약 취소' : '지금 사용 종료 (사전 종료)';
+  const desc = r.action === 'cancel'
+    ? '시작 전이라 사용 시간 0시간으로 기록되고, 하루 한도에서 빠집니다.'
+    : `지금까지 사용한 시간(약 ${r.usedSoFar}시간)만 하루 한도에 잡히고, 남은 시간은 다른 사람이 예약할 수 있게 비워집니다.`;
+  box.innerHTML = h + `<p>${desc}</p><button class="no" id="go">${label}</button><div class="msg"></div>`;
+  document.getElementById('go').onclick = async function () {
+    if (!confirm(label + '할까요? 되돌릴 수 없습니다.')) return;
+    this.disabled = true;
+    box.querySelector('.msg').textContent = '처리 중…';
+    try { const m = await api('selfAction', { c: KEY }); box.innerHTML = `<p style="white-space:pre-line">${esc(m)}</p>`; }
+    catch (e) { this.disabled = false; box.querySelector('.msg').textContent = '오류: ' + e.message; }
+  };
+}
+
+if (!KEY) box.innerHTML = '<span class="error">메일로 받은 "내 예약 관리" 링크로 들어와 주세요.</span>';
+else api('self', { c: KEY }).then(render).catch(e => { box.innerHTML = `<span class="error">${esc(e.message)}</span>`; });
+</script>
+</body>
+</html>

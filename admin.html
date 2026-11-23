@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>기기예약 관리</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>기기예약 관리</h1>
+  <div id="who" class="muted">불러오는 중…</div>
+  <div id="root"></div>
+</div>
+<script src="common.js"></script>
+<script>
+const KEY = qs('k');
+const root = document.getElementById('root');
+
+function card(r, buttons) {
+  return `<div class="card" id="c-${esc(r.id)}">
+    <div><b>${esc(r.이름)}</b> (${esc(r.학번)}) · ${esc(r.기기)}</div>
+    <div>${esc(r.시작)} ~ ${esc(r.종료)} · ${esc(r.시간)}h <span class="muted">(그날 이전 ${esc(r.이전누적 || 0)}h)</span></div>
+    <div>재료: ${esc(r.재료)}${r.두께 ? ' / ' + esc(r.두께) + 'mm' : ''}</div>
+    <div>수업: ${esc(r.수업)} · 목적: ${esc(r.목적)}</div>
+    ${r.상주인원 ? `<div>상주인원: ${esc(r.상주인원).replace(/\n/g, '<br>')}</div>` : ''}
+    ${r.분류사유 ? `<pre>${esc(r.분류사유)}</pre>` : ''}
+    <input class="memo" placeholder="메모 / 반려·취소 사유">
+    <div>${buttons}</div><div class="msg"></div>
+  </div>`;
+}
+const btn = (id, act, label, cls) => `<button class="${cls || ''}" data-id="${esc(id)}" data-act="${act}">${label}</button>`;
+
+function render(d) {
+  document.getElementById('who').textContent =
+    `${d.admin.name} · ${d.admin.role} · 권한: ${d.admin.perms}` + (d.admin.devices.length ? ' · 담당: ' + d.admin.devices.join(', ') : '');
+  let h = `<h2>승인 대기 (${d.pending.length})</h2>`;
+  h += d.pending.map(r => card(r,
+    (r.canApprove ? btn(r.id, 'approve', '승인', 'ok') : '') +
+    (r.canPartial ? btn(r.id, 'partial', `한도(${r.maxHours}h)까지 승인`) : '') +
+    btn(r.id, 'reject', '반려', 'no'))).join('') || '<p class="muted">처리할 신청이 없습니다.</p>';
+
+  if (d.devices.length) {
+    h += `<h2>기기 상태</h2>`;
+    h += d.outages.map(o => `<div class="card" id="o-${esc(o.id)}">
+      <div><b>${esc(o.기기)}</b> · ${esc(o.구분)} ${o.진행중 ? '<span class="tag red">사용 불가 중</span>' : '<span class="tag">예정</span>'}</div>
+      <div>${esc(o.시작)} ~ ${esc(o.복구예정 || '복구 미정')}</div>
+      <div>사유: ${esc(o.사유 || '-')} · 등록: ${esc(o.등록자)}</div>
+      <div><button class="ok" data-restore="${esc(o.id)}">복구 완료</button></div><div class="msg"></div>
+    </div>`).join('') || '<p class="muted">사용 불가로 등록된 기기가 없습니다.</p>';
+    h += `<div class="card" id="newOutage">
+      <div><b>고장·점검 등록</b></div>
+      <label>기기 <select id="o_dev">${d.devices.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
+      <label>구분 <select id="o_kind"><option>고장</option><option>점검</option></select></label>
+      <label>사유 <input id="o_reason" class="memo" placeholder="예: 렌즈 파손, 노즐 막힘, 정기 점검"></label>
+      <label>시작 <input id="o_start" type="datetime-local"> <span class="muted">(비우면 지금)</span></label>
+      <label>복구 예정 <input id="o_end" type="datetime-local"> <span class="muted">(모르면 비움 → 설문에서 기기 숨김)</span></label>
+      <div class="muted">등록하면 겹치는 확정 예약은 취소, 승인대기는 반려되고 신청자에게 안내 메일이 갑니다.</div>
+      <div><button class="no" id="o_go">사용 불가 등록</button></div><div class="msg"></div>
+    </div>`;
+  }
+  if (d.canCancel) {
+    h += `<h2>예정된 예약 (${d.upcoming.length})</h2>`;
+    h += d.upcoming.map(r => card(r, btn(r.id, 'cancel', '예약 취소', 'no'))).join('') || '<p class="muted">예정된 예약이 없습니다.</p>';
+  }
+  root.innerHTML = h;
+}
+
+function busy(el, on, text) {
+  el.querySelectorAll('button').forEach(b => b.disabled = on);
+  el.querySelector('.msg').textContent = text || '';
+}
+
+root.addEventListener('click', async ev => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  if (b.dataset.act) {
+    const el = document.getElementById('c-' + b.dataset.id), memo = el.querySelector('.memo').value, act = b.dataset.act;
+    if ((act === 'reject' || act === 'cancel') && !memo && !confirm('사유 없이 진행할까요?')) return;
+    busy(el, true, '처리 중…');
+    try { const m = await api('consoleAction', { k: KEY, id: b.dataset.id, act, memo }); el.querySelector('.msg').textContent = m; el.classList.add('done'); }
+    catch (e) { busy(el, false, '오류: ' + e.message); }
+  } else if (b.dataset.restore) {
+    if (!confirm('복구 완료로 처리할까요? 바로 예약을 받기 시작합니다.')) return;
+    const el = document.getElementById('o-' + b.dataset.restore);
+    busy(el, true, '처리 중…');
+    try { const m = await api('deviceAction', { k: KEY, op: 'restore', data: { id: b.dataset.restore } }); el.querySelector('.msg').textContent = m; el.classList.add('done'); }
+    catch (e) { busy(el, false, '오류: ' + e.message); }
+  } else if (b.id === 'o_go') {
+    const v = id => document.getElementById(id).value, el = document.getElementById('newOutage');
+    if (!confirm(v('o_dev') + ' 사용 불가로 등록할까요? 겹치는 예약이 취소됩니다.')) return;
+    busy(el, true, '처리 중…');
+    try {
+      const m = await api('deviceAction', { k: KEY, op: 'register',
+        data: { device: v('o_dev'), kind: v('o_kind'), reason: v('o_reason'), start: v('o_start'), end: v('o_end') } });
+      el.querySelector('.msg').textContent = m; el.classList.add('done');
+    } catch (e) { busy(el, false, '오류: ' + e.message); }
+  }
+});
+
+if (!KEY) { document.getElementById('who').innerHTML = '<span class="error">메일로 받은 관리 페이지 링크로 들어와 주세요.</span>'; }
+else api('console', { k: KEY }).then(render)
+  .catch(e => { document.getElementById('who').innerHTML = `<span class="error">${esc(e.message)}</span>`; });
+</script>
+</body>
+</html>

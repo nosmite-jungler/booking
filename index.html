@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기기 예약 — 시간 선택</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1f2328; --muted: #6b7280; --line: #e3e6ea; --line2: #f0f2f4;
+    --sel: #1a73e8; --sel-bg: rgba(26,115,232,.18); --warn: #e37400; --warn-bg: rgba(227,116,0,.18);
+    --err: #c5221f; --err-bg: rgba(197,34,31,.16);
+    --booked: #9aa0a6; --outage: #c5221f; --pending: #f9ab00;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 2px; }
+  .muted { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 12px 0; }
+  .notice { background: #fff4e5; border-color: #ffd8a8; white-space: pre-line; font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; }
+  input, select, button { font: inherit; }
+  input, select { padding: 7px 8px; border: 1px solid #cfd4da; border-radius: 8px; background: #fff; color: var(--text); min-height: 38px; }
+  button { padding: 8px 12px; border: 1px solid #cfd4da; border-radius: 8px; background: #fff; cursor: pointer; min-height: 38px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .primary { background: var(--sel); color: #fff; border-color: var(--sel); font-weight: 600; text-decoration: none;
+    display: inline-flex; align-items: center; padding: 10px 16px; border-radius: 8px; }
+  .primary[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+
+  /* 타임라인 */
+  .grid { display: grid; grid-template-columns: 44px repeat(var(--lanes), minmax(0, 1fr)); position: relative; user-select: none; }
+  .lane-head { position: sticky; top: 0; z-index: 3; background: var(--card); font-size: 12px; font-weight: 600;
+    text-align: center; padding: 6px 2px; border-bottom: 1px solid var(--line); line-height: 1.25; }
+  .lane-head.off { color: var(--err); }
+  .gutter { position: relative; }
+  .tick { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-50%); }
+  .lane { position: relative; border-left: 1px solid var(--line); cursor: crosshair; touch-action: pan-y; }
+  .lane.type-printer { background: #fbfcfe; }
+  .slotline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line2); pointer-events: none; }
+  .slotline.hour { border-top-color: var(--line); }
+  .blk { position: absolute; left: 3px; right: 3px; border-radius: 6px; font-size: 11px; padding: 2px 4px; overflow: hidden;
+    pointer-events: none; color: #fff; }
+  .blk.booked { background: var(--booked); }
+  .blk.outage { background: repeating-linear-gradient(45deg, var(--outage), var(--outage) 6px, #d93025 6px, #d93025 12px); }
+  .blk.pending { background: repeating-linear-gradient(45deg, rgba(249,171,0,.55), rgba(249,171,0,.55) 6px, rgba(249,171,0,.3) 6px, rgba(249,171,0,.3) 12px); color: #6b4a00; }
+  .sel { position: absolute; left: 2px; right: 2px; border-radius: 6px; border: 2px solid var(--sel); background: var(--sel-bg);
+    pointer-events: none; z-index: 2; font-size: 12px; font-weight: 600; color: var(--sel); padding: 2px 4px; }
+  .sel.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+  .sel.err { border-color: var(--err); background: var(--err-bg); color: var(--err); }
+  .sel.pending1 { border-style: dashed; }
+  .past { position: absolute; left: 0; right: 0; top: 0; background: rgba(0,0,0,.05); pointer-events: none; }
+  .scroll { max-height: 62vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+  .status { margin: 10px 0 0; font-weight: 600; min-height: 22px; }
+  .status.ok { color: var(--sel); } .status.warn { color: var(--warn); } .status.err { color: var(--err); }
+  .sub a { display: inline-block; margin: 4px 8px 4px 0; }
+  .spin { color: var(--muted); padding: 24px; text-align: center; }
+  @media (max-width: 560px) { .lane-head { font-size: 11px; } .grid { grid-template-columns: 36px repeat(var(--lanes), minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>기기 예약 — 시간 선택</h1>
+  <div class="muted" id="howto">원하는 기기 칸에서 시작 시각부터 끝 시각까지 드래그하세요. 아래 시각 칸을 바꾸면 막대도 함께 움직입니다.</div>
+
+  <div class="card notice" id="notice" hidden></div>
+
+  <div class="card">
+    <div class="row">
+      <button id="prev" aria-label="이전 날">◀</button>
+      <input type="date" id="date">
+      <button id="next" aria-label="다음 날">▶</button>
+      <button id="today">오늘</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>기기 <select id="device"></select></label>
+      <label>시작 <input type="time" id="start"></label>
+      <label>종료 <input type="time" id="end"></label>
+      <span class="muted" id="dur"></span>
+    </div>
+    <div class="status" id="status"></div>
+    <div style="margin-top:10px"><a class="primary" id="go" target="_blank" rel="noopener" aria-disabled="true" href="#">이 시간으로 신청서 작성 →</a></div>
+    <div class="muted" style="font-size:12px;margin-top:6px">신청서가 기기·날짜·시각이 채워진 채로 열립니다. 재료와 상주인원 등을 입력해 제출하세요. 확정 메일을 받아야 예약이 성립합니다.</div>
+  </div>
+
+  <div class="scroll" id="scroll"><div class="spin">불러오는 중…</div></div>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--booked)"></i>예약됨</span>
+    <span><i class="sw" style="background:var(--outage)"></i>고장·점검 (사용 불가)</span>
+    <span><i class="sw" style="background:rgba(249,171,0,.55)"></i>다른 신청 승인 대기 중</span>
+    <span><i class="sw" style="background:var(--sel-bg);border:2px solid var(--sel)"></i>내 선택</span>
+  </div>
+
+  <div class="card sub" id="subscribe" hidden>
+    <b>캘린더 구독</b> <span class="muted">— 한 번 추가하면 내 캘린더에서 예약 현황을 계속 볼 수 있습니다.</span>
+    <div id="sublinks"></div>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+function main(BOOT) {
+  // ── 설정
+  const B = BOOT;
+  const STEP = B.step, FROM = B.day.from * 60, TO = B.day.to * 60;
+  const ROW = window.matchMedia('(max-width: 560px)').matches ? 26 : 22;   // 한 칸 높이(px)
+  const SLOTS = (TO - FROM) / STEP;
+  const lanes = B.devices;
+  const $ = id => document.getElementById(id);
+
+  let data = null;          // getDayAvailability 결과
+  let sel = null;           // { lane, s, e } (분, 자정 기준)
+  let tapAnchor = null;     // 터치: 첫 탭 위치
+
+  // ── 시간 유틸
+  const pad = n => String(n).padStart(2, '0');
+  const hm = m => `${pad(Math.floor((m % 1440) / 60))}:${pad(m % 60)}`;
+  const toMin = v => { const [h, mi] = String(v).split(':').map(Number); return h * 60 + mi; };
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const addDays = (s, n) => { const [y, m, d] = s.split('-').map(Number); return ymd(new Date(y, m - 1, d + n)); };
+  const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+
+  // ── 초기 UI
+  $('date').value = B.today; $('date').min = B.today; $('date').max = addDays(B.today, B.maxDays);
+  $('start').step = STEP * 60; $('end').step = STEP * 60;
+  lanes.forEach((l, i) => { const o = document.createElement('option'); o.value = i; o.textContent = l.name + (l.hidden ? ' (사용 불가)' : ''); $('device').appendChild(o); });
+
+  if (B.subscribe && B.subscribe.length) {
+    $('subscribe').hidden = false;
+    $('sublinks').innerHTML = B.subscribe.map(s =>
+      `<div>${esc(s.label)}: <a href="${esc(s.google)}" target="_blank" rel="noopener">Google 캘린더에 추가</a>` +
+      `<a href="${esc(s.ical)}" target="_blank" rel="noopener">iCal 주소 (아이폰 등)</a></div>`).join('');
+  }
+
+
+  // ── 데이터 불러오기
+  function load() {
+    $('scroll').innerHTML = '<div class="spin">불러오는 중…</div>';
+    const date = $('date').value;
+    const done = res => { data = res; render(); };
+    api('day', { date }).then(done)
+      .catch(e => { $('scroll').innerHTML = `<div class="spin">불러오지 못했습니다: ${esc(e.message)}</div>`; });
+  }
+
+  // ── 그리기
+  function render() {
+    const n = data.notice || '';
+    $('notice').hidden = !n; $('notice').textContent = n;
+    const isToday = data.date === B.today;
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    grid.style.setProperty('--lanes', lanes.length);
+
+    grid.appendChild(Object.assign(document.createElement('div'), { className: 'lane-head', textContent: '' }));
+    lanes.forEach(l => {
+      const h = document.createElement('div');
+      h.className = 'lane-head' + (l.hidden ? ' off' : '');
+      h.textContent = l.short + (l.hidden ? ' ⛔' : '');
+      grid.appendChild(h);
+    });
+
+    const gutter = document.createElement('div');
+    gutter.className = 'gutter'; gutter.style.height = SLOTS * ROW + 'px';
+    for (let m = FROM; m <= TO; m += 60) {
+      const t = document.createElement('div'); t.className = 'tick';
+      t.style.top = ((m - FROM) / STEP) * ROW + 'px'; t.textContent = hm(m === 1440 ? 0 : m).replace(/^0/, '');
+      if (m === FROM) t.style.transform = 'none';
+      gutter.appendChild(t);
+    }
+    grid.appendChild(gutter);
+
+    lanes.forEach((l, i) => {
+      const lane = document.createElement('div');
+      lane.className = 'lane type-' + l.type; lane.dataset.lane = i; lane.style.height = SLOTS * ROW + 'px';
+      for (let k = 1; k < SLOTS; k++) {
+        const ln = document.createElement('div');
+        ln.className = 'slotline' + (((FROM + k * STEP) % 60) === 0 ? ' hour' : '');
+        ln.style.top = k * ROW + 'px'; lane.appendChild(ln);
+      }
+      if (isToday) {
+        const p = document.createElement('div'); p.className = 'past';
+        p.style.height = Math.max(0, Math.min(SLOTS * ROW, ((nowMin() - FROM) / STEP) * ROW)) + 'px';
+        lane.appendChild(p);
+      }
+      const dev = data.devices.find(d => d.name === l.name) || { blocks: [] };
+      dev.blocks.forEach(b => {
+        const s = Math.max(b.s, FROM), e = Math.min(b.e, TO);
+        if (e <= s) return;
+        const el = document.createElement('div');
+        el.className = 'blk ' + b.kind;
+        el.style.top = ((s - FROM) / STEP) * ROW + 'px';
+        el.style.height = Math.max(4, ((e - s) / STEP) * ROW - 2) + 'px';
+        el.textContent = { booked: '예약됨', outage: '사용 불가', pending: '대기' }[b.kind];
+        lane.appendChild(el);
+      });
+      attach(lane, i);
+      grid.appendChild(lane);
+    });
+    $('scroll').innerHTML = ''; $('scroll').appendChild(grid);
+    drawSel();
+  }
+
+  // ── 드래그 / 탭
+  function slotAt(lane, clientY) {
+    const r = lane.getBoundingClientRect();
+    return Math.max(0, Math.min(SLOTS - 1, Math.floor((clientY - r.top) / ROW)));
+  }
+  function setFromSlots(laneIdx, a, b) {
+    const lo = Math.min(a, b), hi = Math.max(a, b);
+    sel = { lane: laneIdx, s: FROM + lo * STEP, e: FROM + (hi + 1) * STEP };
+    syncInputs(); drawSel();
+  }
+  function attach(lane, i) {
+    let drag = null;
+    lane.addEventListener('pointerdown', ev => {
+      if (ev.pointerType === 'touch') { drag = { touch: true, x: ev.clientX, y: ev.clientY }; return; }
+      ev.preventDefault();
+      const a = slotAt(lane, ev.clientY);
+      drag = { a };
+      lane.setPointerCapture(ev.pointerId);
+      setFromSlots(i, a, a);
+    });
+    lane.addEventListener('pointermove', ev => {
+      if (!drag || drag.touch) return;
+      setFromSlots(i, drag.a, slotAt(lane, ev.clientY));
+    });
+    lane.addEventListener('pointerup', ev => {
+      if (drag && drag.touch && Math.abs(ev.clientX - drag.x) < 10 && Math.abs(ev.clientY - drag.y) < 10) {
+        // 터치: 첫 탭 = 시작 칸, 같은 기기에서 두 번째 탭 = 끝 칸
+        const k = slotAt(lane, ev.clientY);
+        if (tapAnchor && tapAnchor.lane === i) { const a = tapAnchor.k; tapAnchor = null; setFromSlots(i, a, k); }
+        else { tapAnchor = { lane: i, k }; setFromSlots(i, k, k); }
+      }
+      drag = null;
+    });
+    lane.addEventListener('pointercancel', () => { drag = null; });
+  }
+
+  // ── 선택 ↔ 입력 칸 연동
+  function syncInputs() {
+    if (!sel) return;
+    $('device').value = sel.lane; $('start').value = hm(sel.s); $('end').value = hm(sel.e);
+    update();
+  }
+  function fromInputs() {
+    const s = $('start').value, e = $('end').value;
+    if (!s || !e) return;
+    let sm = toMin(s), em = toMin(e);
+    if (em <= sm) em += 1440;            // 자정 넘김
+    sel = { lane: +$('device').value, s: sm, e: em };
+    tapAnchor = null;
+    drawSel(); update();
+  }
+  ['start', 'end', 'device'].forEach(id => $(id).addEventListener('change', fromInputs));
+  $('start').addEventListener('input', fromInputs); $('end').addEventListener('input', fromInputs);
+
+  function drawSel() {
+    document.querySelectorAll('.sel').forEach(x => x.remove());
+    if (!sel || !data) return;
+    const lane = document.querySelector(`.lane[data-lane="${sel.lane}"]`);
+    if (!lane) return;
+    const s = Math.max(sel.s, FROM), e = Math.min(sel.e, TO);
+    if (e <= s) return;
+    const el = document.createElement('div');
+    el.className = 'sel ' + (check().level === 'ok' ? '' : check().level) + (tapAnchor ? ' pending1' : '');
+    el.style.top = ((s - FROM) / STEP) * ROW + 'px';
+    el.style.height = ((e - s) / STEP) * ROW - 2 + 'px';
+    el.textContent = `${hm(sel.s)}–${hm(sel.e)}`;
+    lane.appendChild(el);
+  }
+
+  // ── 검사 (서버도 제출 후 다시 검사함)
+  function check() {
+    if (!sel) return { level: 'none', msg: '' };
+    const l = lanes[sel.lane];
+    const dev = data && data.devices.find(d => d.name === l.name) || { blocks: [] };
+    const hit = k => dev.blocks.find(b => b.kind === k && sel.s < b.e && b.s < sel.e);
+    const hours = (sel.e - sel.s) / 60;
+    if (data && data.date === B.today && sel.s < nowMin()) return { level: 'err', msg: '이미 지난 시간입니다.' };
+    if (l.hidden || hit('outage')) return { level: 'err', msg: '⛔ 이 시간에는 기기를 사용할 수 없습니다 (고장·점검).' };
+    if (hit('booked')) return { level: 'err', msg: '이미 예약된 시간과 겹칩니다. 다른 시간이나 기기를 고르세요.' };
+    const max = B.maxHours[l.type];
+    const notes = [];
+    let level = 'ok';
+    if (hours > max) { level = 'warn'; notes.push(`하루 ${max}시간을 넘는 부분은 관리자 승인이 필요합니다.`); }
+    if (hit('pending')) { level = 'warn'; notes.push('다른 사람의 신청이 승인 대기 중인 시간과 겹칩니다. 먼저 승인되는 쪽이 확정됩니다.'); }
+    if (level === 'ok') notes.push('신청 가능한 시간입니다.' + (tapAnchor ? ' (끝 칸을 한 번 더 누르면 길이를 늘릴 수 있어요)' : ''));
+    return { level, msg: notes.join(' ') };
+  }
+
+  function update() {
+    const c = check();
+    $('status').className = 'status ' + c.level;
+    $('status').textContent = c.msg;
+    $('dur').textContent = sel ? `${((sel.e - sel.s) / 60).toFixed(1).replace(/\.0$/, '')}시간` : '';
+    const go = $('go');
+    const ok = sel && (c.level === 'ok' || c.level === 'warn') && B.prefill;
+    go.setAttribute('aria-disabled', ok ? 'false' : 'true');
+    if (ok) {
+      const p = B.prefill, q = new URLSearchParams({ usp: 'pp_url' });
+      q.set('entry.' + p.device, lanes[sel.lane].name);
+      q.set('entry.' + p.date, data.date);
+      q.set('entry.' + p.start, hm(sel.s));
+      q.set('entry.' + p.end, hm(sel.e));
+      go.href = p.base + '?' + q.toString();
+    } else go.href = '#';
+    if (!B.prefill && sel) $('status').textContent += ' (관리자: 신청서 연결 정보가 없습니다. setup을 다시 확인하세요.)';
+  }
+
+  // ── 날짜 이동
+  const setDate = v => { if (v < $('date').min || v > $('date').max) return; $('date').value = v; sel = null; tapAnchor = null; update(); load(); };
+  $('prev').onclick = () => setDate(addDays($('date').value, -1));
+  $('next').onclick = () => setDate(addDays($('date').value, 1));
+  $('today').onclick = () => setDate(B.today);
+  $('date').addEventListener('change', () => setDate($('date').value));
+
+  if (window.matchMedia('(pointer: coarse)').matches) $('howto').textContent = '원하는 기기 칸에서 시작 칸을 누르고, 끝 칸을 한 번 더 누르세요. 아래 시각 칸을 바꾸면 막대도 함께 움직입니다.';
+  load();
+}
+api('boot').then(main).catch(e => {
+  document.getElementById('scroll').innerHTML = '<div class="spin">불러오지 못했습니다: ' + esc(e.message) + '</div>';
+});
+</script>
+</body>
+</html>
