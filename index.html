@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>기기·209호실 예약</title>
+<title>기기 예약</title>
 <style>
   /* 뉴모피즘 — 색·그림자는 :root 값만 바꾸면 됩니다 */
   :root {
@@ -94,7 +94,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>기기 · 209호실 예약</h1>
+  <h1>기기 예약</h1>
   <div class="muted" id="howto">원하는 기기 칸에서 시작 시각부터 끝 시각까지 드래그하세요. 아래 시각 칸을 바꾸면 막대도 함께 움직입니다. 떨어진 시간을 더 쓰려면 ＋ 떨어진 시간 추가를 누르고 다음 시간을 고르세요.</div>
 
   <div class="card notice" id="notice" hidden></div>
@@ -237,6 +237,10 @@ function main(BOOT) {
       grid.appendChild(lane);
     });
     $('scroll').innerHTML = ''; $('scroll').appendChild(grid);
+    // 하루 종일 표시할 때 자정부터 보이지 않도록: 오늘은 지금 시각 1시간 전, 다른 날은 9시로 스크롤
+    const target = isToday ? Math.max(FROM, nowMin() - 60) : Math.max(FROM, Math.min(9 * 60, TO));
+    const gridTop = grid.querySelector('.lane').offsetTop;
+    $('scroll').scrollTop = Math.max(0, ((target - FROM) / STEP) * ROW + gridTop - 40);
     drawSel();
   }
 
