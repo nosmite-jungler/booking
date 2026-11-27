@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>기기 예약 — 시간 선택</title>
+<title>기기·209호실 예약</title>
 <style>
   /* 뉴모피즘 — 색·그림자는 :root 값만 바꾸면 됩니다 */
   :root {
@@ -11,7 +11,7 @@
     --line: rgba(120,132,150,.28); --line2: rgba(120,132,150,.12);
     --sel: #3d6fe0; --sel-bg: rgba(61,111,224,.16); --warn: #c76a00; --warn-bg: rgba(199,106,0,.16);
     --err: #c8372f; --err-bg: rgba(200,55,47,.14);
-    --booked: #8f98a8; --outage: #c8372f; --pending: #e3a21a; --lane2: rgba(255,255,255,.25);
+    --booked: #8f98a8; --outage: #c8372f; --pending: #e3a21a; --lane2: rgba(255,255,255,.25); --lane3: rgba(61,111,224,.06);
     --radius: 18px; --radius-s: 12px;
     --raise: 7px 7px 16px var(--lo), -7px -7px 16px var(--hi);
     --raise-s: 4px 4px 9px var(--lo), -4px -4px 9px var(--hi);
@@ -20,7 +20,7 @@
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #2a2e36; --hi: #363b45; --lo: #1c1f25; --text: #e6e9ef; --muted: #9aa3b2;
-      --sel: #7aa2ff; --sel-bg: rgba(122,162,255,.18); --warn: #f0a24a; --err: #ff7a70; --booked: #5d6574; --lane2: rgba(255,255,255,.025); }
+      --sel: #7aa2ff; --sel-bg: rgba(122,162,255,.18); --warn: #f0a24a; --err: #ff7a70; --booked: #5d6574; --lane2: rgba(255,255,255,.025); --lane3: rgba(122,162,255,.07); }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
@@ -55,6 +55,8 @@
   .tick { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-50%); }
   .lane { position: relative; border-left: 1px solid var(--line); cursor: crosshair; touch-action: pan-y; }
   .lane.type-printer { background: var(--lane2); }
+  .lane.type-room { background: var(--lane3); }
+  .lane-head.room { color: var(--sel); }
   .slotline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line2); pointer-events: none; }
   .slotline.hour { border-top-color: var(--line); }
   .blk { position: absolute; left: 4px; right: 4px; border-radius: 8px; font-size: 11px; padding: 2px 5px; overflow: hidden;
@@ -68,6 +70,13 @@
   .sel.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
   .sel.err { border-color: var(--err); background: var(--err-bg); color: var(--err); }
   .sel.pending1 { border-style: dashed; }
+  .sel.fixed { background: var(--sel); color: #fff; }
+  .segbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 999px;
+    box-shadow: var(--press-s); color: var(--sel); font-weight: 600; }
+  .chip.now { box-shadow: none; border: 1.5px dashed var(--sel); }
+  .chip button { min-height: 26px; padding: 0 8px; border-radius: 999px; font-size: 12px; color: var(--muted); box-shadow: var(--raise-s); }
+  .add { color: var(--sel); }
   .past { position: absolute; left: 0; right: 0; top: 0; background: rgba(90,100,120,.10); pointer-events: none; }
   .scroll { max-height: 62vh; overflow: auto; border-radius: var(--radius); background: var(--bg); box-shadow: var(--press); padding: 0 6px 6px; }
 
@@ -85,8 +94,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>기기 예약 — 시간 선택</h1>
-  <div class="muted" id="howto">원하는 기기 칸에서 시작 시각부터 끝 시각까지 드래그하세요. 아래 시각 칸을 바꾸면 막대도 함께 움직입니다.</div>
+  <h1>기기 · 209호실 예약</h1>
+  <div class="muted" id="howto">원하는 기기 칸에서 시작 시각부터 끝 시각까지 드래그하세요. 아래 시각 칸을 바꾸면 막대도 함께 움직입니다. 떨어진 시간을 더 쓰려면 ＋ 떨어진 시간 추가를 누르고 다음 시간을 고르세요.</div>
 
   <div class="card notice" id="notice" hidden></div>
 
@@ -102,7 +111,9 @@
       <label>시작 <input type="time" id="start"></label>
       <label>종료 <input type="time" id="end"></label>
       <span class="muted" id="dur"></span>
+      <button type="button" class="add" id="addseg" hidden>＋ 떨어진 시간 추가</button>
     </div>
+    <div class="segbar" id="segbar" hidden></div>
     <div class="status" id="status"></div>
     <div style="margin-top:10px"><a class="primary" id="go" target="_blank" rel="noopener" aria-disabled="true" href="#">이 시간으로 신청서 작성 →</a></div>
     <div class="muted" style="font-size:12px;margin-top:6px">신청서가 기기·날짜·시각이 채워진 채로 열립니다. 재료와 상주인원 등을 입력해 제출하세요. 확정 메일을 받아야 예약이 성립합니다.</div>
@@ -134,7 +145,11 @@ function main(BOOT) {
   const $ = id => document.getElementById(id);
 
   let data = null;          // getDayAvailability 결과
-  let sel = null;           // { lane, s, e } (분, 자정 기준)
+  let sel = null;           // { lane, s, e } (분, 자정 기준) — 지금 고르는 구간
+  let segs = [];            // '떨어진 시간 추가'로 고정해 둔 구간들 (같은 기기)
+  const MAXSEG = B.maxSegs || 1;
+  const canMulti = () => !!(B.prefill && B.prefill.extra) && MAXSEG > 1;
+  const allSegs = () => segs.concat(sel ? [sel] : []).slice().sort((a, b) => a.s - b.s);
   let tapAnchor = null;     // 터치: 첫 탭 위치
 
   // ── 시간 유틸
@@ -179,7 +194,7 @@ function main(BOOT) {
     grid.appendChild(Object.assign(document.createElement('div'), { className: 'lane-head', textContent: '' }));
     lanes.forEach(l => {
       const h = document.createElement('div');
-      h.className = 'lane-head' + (l.hidden ? ' off' : '');
+      h.className = 'lane-head' + (l.hidden ? ' off' : '') + (l.type === 'room' ? ' room' : '');
       h.textContent = l.short + (l.hidden ? ' ⛔' : '');
       grid.appendChild(h);
     });
@@ -281,33 +296,38 @@ function main(BOOT) {
 
   function drawSel() {
     document.querySelectorAll('.sel').forEach(x => x.remove());
-    if (!sel || !data) return;
-    const lane = document.querySelector(`.lane[data-lane="${sel.lane}"]`);
-    if (!lane) return;
-    const s = Math.max(sel.s, FROM), e = Math.min(sel.e, TO);
-    if (e <= s) return;
-    const el = document.createElement('div');
-    el.className = 'sel ' + (check().level === 'ok' ? '' : check().level) + (tapAnchor ? ' pending1' : '');
-    el.style.top = ((s - FROM) / STEP) * ROW + 'px';
-    el.style.height = ((e - s) / STEP) * ROW - 2 + 'px';
-    el.textContent = `${hm(sel.s)}–${hm(sel.e)}`;
-    lane.appendChild(el);
+    if (!data) return;
+    const box = (x, cls) => {
+      const lane = document.querySelector(`.lane[data-lane="${x.lane}"]`);
+      const s = Math.max(x.s, FROM), e = Math.min(x.e, TO);
+      if (!lane || e <= s) return;
+      const el = document.createElement('div');
+      el.className = 'sel ' + cls;
+      el.style.top = ((s - FROM) / STEP) * ROW + 'px';
+      el.style.height = ((e - s) / STEP) * ROW - 2 + 'px';
+      el.textContent = `${hm(x.s)}–${hm(x.e)}`;
+      lane.appendChild(el);
+    };
+    segs.forEach(x => box(x, 'fixed'));
+    if (sel) { const lv = check().level; box(sel, (lv === 'ok' || lv === 'none' ? '' : lv) + (tapAnchor ? ' pending1' : '')); }
   }
 
   // ── 검사 (서버도 제출 후 다시 검사함)
   function check() {
-    if (!sel) return { level: 'none', msg: '' };
+    if (!sel) return segs.length ? { level: 'ok', msg: `구간 ${segs.length}개를 골랐습니다. 더 추가하거나 신청서를 작성하세요.` } : { level: 'none', msg: '' };
     const l = lanes[sel.lane];
+    if (segs.length && sel.lane !== segs[0].lane) return { level: 'err', msg: `떨어진 시간은 같은 기기에서만 고를 수 있습니다 (${lanes[segs[0].lane].short}).` };
+    if (segs.some(x => sel.s < x.e && x.s < sel.e)) return { level: 'err', msg: '이미 고른 구간과 겹칩니다.' };
     const dev = data && data.devices.find(d => d.name === l.name) || { blocks: [] };
     const hit = k => dev.blocks.find(b => b.kind === k && sel.s < b.e && b.s < sel.e);
-    const hours = (sel.e - sel.s) / 60;
+    const hours = allSegs().reduce((t, x) => t + (x.e - x.s) / 60, 0);
     if (data && data.date === B.today && sel.s < nowMin()) return { level: 'err', msg: '이미 지난 시간입니다.' };
     if (l.hidden || hit('outage')) return { level: 'err', msg: '⛔ 이 시간에는 기기를 사용할 수 없습니다 (고장·점검).' };
     if (hit('booked')) return { level: 'err', msg: '이미 예약된 시간과 겹칩니다. 다른 시간이나 기기를 고르세요.' };
     const max = B.maxHours[l.type];
     const notes = [];
     let level = 'ok';
-    if (hours > max) { level = 'warn'; notes.push(`하루 ${max}시간을 넘는 부분은 관리자 승인이 필요합니다.`); }
+    if (hours > max) { level = 'warn'; notes.push(`하루 ${max}시간을 넘는 부분은 관리자 승인이 필요합니다` + (segs.length ? ' (구간 합산).' : '.')); }
     if (hit('pending')) { level = 'warn'; notes.push('다른 사람의 신청이 승인 대기 중인 시간과 겹칩니다. 먼저 승인되는 쪽이 확정됩니다.'); }
     if (level === 'ok') notes.push('신청 가능한 시간입니다.' + (tapAnchor ? ' (끝 칸을 한 번 더 누르면 길이를 늘릴 수 있어요)' : ''));
     return { level, msg: notes.join(' ') };
@@ -317,29 +337,61 @@ function main(BOOT) {
     const c = check();
     $('status').className = 'status ' + c.level;
     $('status').textContent = c.msg;
-    $('dur').textContent = sel ? `${((sel.e - sel.s) / 60).toFixed(1).replace(/\.0$/, '')}시간` : '';
+    const list = c.level === 'err' ? segs.slice() : allSegs();
+    const total = list.reduce((t, x) => t + (x.e - x.s) / 60, 0);
+    $('dur').textContent = list.length ? `${segs.length ? '합계 ' : ''}${total.toFixed(1).replace(/\.0$/, '')}시간` : '';
     const go = $('go');
-    const ok = sel && (c.level === 'ok' || c.level === 'warn') && B.prefill;
+    const ok = list.length && (c.level === 'ok' || c.level === 'warn' || (c.level === 'err' && segs.length)) && B.prefill;
     go.setAttribute('aria-disabled', ok ? 'false' : 'true');
+    go.textContent = list.length > 1 ? `구간 ${list.length}개로 신청서 작성 →` : '이 시간으로 신청서 작성 →';
     if (ok) {
       const p = B.prefill, q = new URLSearchParams({ usp: 'pp_url' });
-      q.set('entry.' + p.device, lanes[sel.lane].name);
+      q.set('entry.' + p.device, lanes[list[0].lane].name);
       q.set('entry.' + p.date, data.date);
-      q.set('entry.' + p.start, hm(sel.s));
-      q.set('entry.' + p.end, hm(sel.e));
+      q.set('entry.' + p.start, hm(list[0].s));
+      q.set('entry.' + p.end, hm(list[0].e));
+      if (list.length > 1 && p.extra) q.set('entry.' + p.extra, list.slice(1).map(x => `${hm(x.s)}-${hm(x.e)}`).join(', '));
       go.href = p.base + '?' + q.toString();
     } else go.href = '#';
+    // 떨어진 시간 추가 버튼 + 고른 구간 목록
+    const add = $('addseg');
+    add.hidden = !canMulti();
+    add.disabled = !(sel && (c.level === 'ok' || c.level === 'warn') && allSegs().length < MAXSEG);
+    add.title = allSegs().length >= MAXSEG ? `최대 ${MAXSEG}개 구간까지 고를 수 있습니다` : '';
+    const bar = $('segbar');
+    bar.hidden = !segs.length;
+    bar.innerHTML = segs.length ? '<span class="muted">고른 구간</span>' +
+      segs.map((x, i) => `<span class="chip">${hm(x.s)}–${hm(x.e)}<button type="button" data-rm="${i}" aria-label="구간 빼기">✕</button></span>`).join('') +
+      (sel && c.level !== 'err' ? `<span class="chip now">${hm(sel.s)}–${hm(sel.e)} (고르는 중)</span>` : '') : '';
     if (!B.prefill && sel) $('status').textContent += ' (관리자: 신청서 연결 정보가 없습니다. setup을 다시 확인하세요.)';
   }
 
+  // ── 떨어진 시간: 지금 구간을 고정하고 다음 구간 고르기
+  $('addseg').onclick = () => {
+    if (!sel) return;
+    segs.push(sel); segs.sort((a, b) => a.s - b.s);
+    sel = null; tapAnchor = null;
+    $('start').value = ''; $('end').value = '';
+    $('status').textContent = '';
+    update(); drawSel();
+    $('status').className = 'status ok';
+    $('status').textContent = `구간 ${segs.length}개를 골랐습니다. 같은 기기에서 다음 시간을 드래그하거나 신청서를 작성하세요.`;
+  };
+  $('segbar').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-rm]');
+    if (!b) return;
+    segs.splice(+b.dataset.rm, 1);
+    update(); drawSel();
+  });
+
   // ── 날짜 이동
-  const setDate = v => { if (v < $('date').min || v > $('date').max) return; $('date').value = v; sel = null; tapAnchor = null; update(); load(); };
+  const setDate = v => { if (v < $('date').min || v > $('date').max) return; $('date').value = v; sel = null; segs = []; tapAnchor = null; update(); load(); };
   $('prev').onclick = () => setDate(addDays($('date').value, -1));
   $('next').onclick = () => setDate(addDays($('date').value, 1));
   $('today').onclick = () => setDate(B.today);
   $('date').addEventListener('change', () => setDate($('date').value));
 
-  if (window.matchMedia('(pointer: coarse)').matches) $('howto').textContent = '원하는 기기 칸에서 시작 칸을 누르고, 끝 칸을 한 번 더 누르세요. 아래 시각 칸을 바꾸면 막대도 함께 움직입니다.';
+  if (window.matchMedia('(pointer: coarse)').matches) $('howto').textContent = '원하는 기기 칸에서 시작 칸을 누르고, 끝 칸을 한 번 더 누르세요. 아래 시각 칸을 바꾸면 막대도 함께 움직입니다. 떨어진 시간을 더 쓰려면 ＋ 떨어진 시간 추가를 누르고 다음 시간을 고르세요.';
   load();
 }
 api('boot').then(main).catch(e => {

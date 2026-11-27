@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>기기예약 관리</title>
+<title>기기·209호실 예약 관리</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
-  <h1>기기예약 관리</h1>
+  <h1>기기·209호실 예약 관리</h1>
   <div id="who" class="muted">불러오는 중…</div>
   <div id="root"></div>
 </div>
@@ -22,9 +22,9 @@ function card(r, buttons) {
   return `<div class="card" id="c-${esc(r.id)}">
     <div><b>${esc(r.이름)}</b> (${esc(r.학번)}) · ${esc(r.기기)}</div>
     <div>${esc(r.시작)} ~ ${esc(r.종료)} · ${esc(r.시간)}h <span class="muted">(그날 이전 ${esc(r.이전누적 || 0)}h)</span></div>
-    <div>재료: ${esc(r.재료)}${r.두께 ? ' / ' + esc(r.두께) + 'mm' : ''}</div>
+    <div>${r.room ? '사용' : '재료'}: ${esc(r.재료)}${r.두께 ? ' / ' + esc(r.두께) + 'mm' : ''}</div>
     <div>수업: ${esc(r.수업)} · 목적: ${esc(r.목적)}</div>
-    ${r.상주인원 ? `<div>상주인원: ${esc(r.상주인원).replace(/\n/g, '<br>')}</div>` : ''}
+    ${r.상주인원 ? `<div>${r.room ? '함께 쓰는 사람' : '상주인원'}: ${esc(r.상주인원).replace(/\n/g, '<br>')}</div>` : ''}
     ${r.분류사유 ? `<pre>${esc(r.분류사유)}</pre>` : ''}
     <input class="memo" placeholder="메모 / 반려·취소 사유">
     <div>${buttons}</div><div class="msg"></div>
