@@ -6,6 +6,16 @@
 <meta name="robots" content="noindex">
 <title>기기예약 관리</title>
 <link rel="stylesheet" href="style.css">
+<style>
+  .photos { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+  .photos a { display: block; border-radius: var(--radius-s); overflow: hidden; box-shadow: var(--raise-s); }
+  .photos img { display: block; max-width: 100%; width: 320px; height: auto; background: var(--bg); }
+  .photos .alt { padding: 10px 14px; display: inline-block; }
+  .resched { display: none; margin: 10px 0; padding: 12px 14px; border-radius: var(--radius-s); box-shadow: var(--press-s); }
+  .resched.open { display: block; }
+  .resched .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .resched label { margin: 6px 0; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -22,17 +32,48 @@ function card(r, buttons) {
   return `<div class="card" id="c-${esc(r.id)}">
     <div><b>${esc(r.이름)}</b> (${esc(r.학번)}) · ${esc(r.기기)}</div>
     <div>${esc(r.시작)} ~ ${esc(r.종료)} · ${esc(r.시간)}h <span class="muted">(그날 이전 ${esc(r.이전누적 || 0)}h)</span></div>
-    <div>${r.room ? '사용' : '재료'}: ${esc(r.재료)}${r.두께 ? ' / ' + esc(r.두께) + 'mm' : ''}</div>
+    <div>재료: ${esc(r.재료)}${r.두께 ? ' / ' + esc(r.두께) + 'mm' : ''}</div>
     <div>수업: ${esc(r.수업)} · 목적: ${esc(r.목적)}</div>
-    ${r.상주인원 ? `<div>${r.room ? '함께 쓰는 사람' : '상주인원'}: ${esc(r.상주인원).replace(/\n/g, '<br>')}</div>` : ''}
+    ${r.상주인원 ? `<div>상주인원: ${esc(r.상주인원).replace(/\n/g, '<br>')}</div>` : ''}
     ${r.분류사유 ? `<pre>${esc(r.분류사유)}</pre>` : ''}
-    <input class="memo" placeholder="메모 / 반려·취소 사유">
-    <div>${buttons}</div><div class="msg"></div>
+    ${photos(r)}
+    <input class="memo" placeholder="메모 / 반려·취소·변경 사유">
+    ${reschedBox(r)}
+    <div>${buttons}${btn(r.id, 'resched', '일정 변경')}</div><div class="msg"></div>
   </div>`;
 }
+// 3D프린터 출력 예상시간 사진 (Drive 미리보기 — 안 뜨면 링크로 열기)
+function photos(r) {
+  if (!r.사진 || !r.사진.length) return r.type === 'printer' ? '<div class="muted">📷 출력 예상시간 사진 없음</div>' : '';
+  return '<div class="photos">' + r.사진.map(id =>
+    `<a href="https://drive.google.com/open?id=${encodeURIComponent(id)}" target="_blank" rel="noopener">` +
+    `<img alt="출력 예상시간 사진" src="https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w800" ` +
+    `onerror="this.outerHTML='<span class=&quot;alt&quot;>📷 사진 열기</span>'"></a>`).join('') + '</div>';
+}
+// 일정 변경 입력칸 (30분 단위, 끝은 24:00까지)
+const TIMES = Array.from({ length: 49 }, (_, i) => String(Math.floor(i / 2)).padStart(2, '0') + ':' + (i % 2 ? '30' : '00'));
+function reschedBox(r) {
+  const s = String(r.시작), e = String(r.종료);
+  const st = s.slice(11, 16), en = e.slice(0, 10) > s.slice(0, 10) ? '24:00' : e.slice(11, 16);
+  const opt = (list, v) => list.map(x => `<option${x === v ? ' selected' : ''}>${x}</option>`).join('');
+  const devs = DEVS.filter(d => d.type === r.type).map(d => d.name);
+  if (devs.indexOf(r.기기) < 0) devs.unshift(r.기기);
+  return `<div class="resched">
+    <div class="row">
+      <label>날짜 <input type="date" class="r_date" value="${esc(s.slice(0, 10))}"></label>
+      <label>시작 <select class="r_start">${opt(TIMES.slice(0, 48), st)}</select></label>
+      <label>종료 <select class="r_end">${opt(TIMES.slice(1), en)}</select></label>
+    </div>
+    <label>기기 <select class="r_dev">${opt(devs, r.기기)}</select></label>
+    <div class="muted">${r.상태 === '확정' ? '저장하면 캘린더 일정이 옮겨지고 신청자에게 변경 메일이 갑니다.' : '승인 전 신청입니다. 시간만 바뀌고, 승인은 따로 눌러야 합니다.'} 위 메모 칸 내용이 변경 사유로 메일에 들어갑니다.</div>
+    <div><button class="ok" data-id="${esc(r.id)}" data-act="rsave">변경 저장</button></div>
+  </div>`;
+}
+let DEVS = [];
 const btn = (id, act, label, cls) => `<button class="${cls || ''}" data-id="${esc(id)}" data-act="${act}">${label}</button>`;
 
 function render(d) {
+  DEVS = d.rdevices || [];
   document.getElementById('who').textContent =
     `${d.admin.name} · ${d.admin.role} · 권한: ${d.admin.perms}` + (d.admin.devices.length ? ' · 담당: ' + d.admin.devices.join(', ') : '');
   let h = `<h2>승인 대기 (${d.pending.length})</h2>`;
@@ -75,7 +116,19 @@ function busy(el, on, text) {
 root.addEventListener('click', async ev => {
   const b = ev.target.closest('button');
   if (!b) return;
-  if (b.dataset.act) {
+  if (b.dataset.act === 'resched') {
+    document.getElementById('c-' + b.dataset.id).querySelector('.resched').classList.toggle('open');
+  } else if (b.dataset.act === 'rsave') {
+    const el = document.getElementById('c-' + b.dataset.id), q = c => el.querySelector(c).value;
+    const data = { date: q('.r_date'), start: q('.r_start'), end: q('.r_end'), device: q('.r_dev'), memo: q('.memo') };
+    if (!confirm(`${data.device}\n${data.date} ${data.start} ~ ${data.end}\n으로 변경할까요? 신청자에게 메일이 갑니다.`)) return;
+    busy(el, true, '변경 중…');
+    try {
+      const m = await api('reschedule', { k: KEY, id: b.dataset.id, data });
+      el.querySelector('.msg').textContent = m + ' — 새로고침하면 바뀐 내용이 보입니다.';
+      el.classList.add('done');
+    } catch (e) { busy(el, false, '오류: ' + e.message); }
+  } else if (b.dataset.act) {
     const el = document.getElementById('c-' + b.dataset.id), memo = el.querySelector('.memo').value, act = b.dataset.act;
     if ((act === 'reject' || act === 'cancel') && !memo && !confirm('사유 없이 진행할까요?')) return;
     busy(el, true, '처리 중…');

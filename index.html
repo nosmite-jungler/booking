@@ -334,6 +334,7 @@ function main(BOOT) {
     if (hours > max) { level = 'warn'; notes.push(`하루 ${max}시간을 넘는 부분은 관리자 승인이 필요합니다` + (segs.length ? ' (구간 합산).' : '.')); }
     if (hit('pending')) { level = 'warn'; notes.push('다른 사람의 신청이 승인 대기 중인 시간과 겹칩니다. 먼저 승인되는 쪽이 확정됩니다.'); }
     if (level === 'ok') notes.push('신청 가능한 시간입니다.' + (tapAnchor ? ' (끝 칸을 한 번 더 누르면 길이를 늘릴 수 있어요)' : ''));
+    if (l.type === 'printer' && B.printReview && hours > max) notes.push(`📷 3D프린터를 ${max}시간 넘게 쓰려면 슬라이서의 출력 예상시간 화면을 캡처해 설문에 올려야 합니다. 관리자가 확인한 뒤 확정됩니다.`);
     return { level, msg: notes.join(' ') };
   }
 
